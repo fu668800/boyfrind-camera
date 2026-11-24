@@ -47,6 +47,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14p
 .bubble .arrow{font:800 18px var(--f-num);display:inline-block}
 .bubble .arrow.bob{animation:bob .9s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(-3px)}}
+.zoom{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:grid;gap:6px}
+.zoom button{width:36px;height:36px;border-radius:50%;border:0;background:rgba(58,44,53,.55);color:#fff;font:800 11px var(--f-num);cursor:pointer}
+.zoom button[aria-pressed="true"]{background:var(--butter);color:#5a3a00}
 .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
 .flash.go{opacity:.9;transition:none}
 
@@ -73,7 +76,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14p
 input[type=range]{width:100%;accent-color:var(--pink)}
 .seg{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .seg .lbl{font-size:12px;color:var(--mute);width:2.6em}
-.compo{display:grid;gap:8px;align-content:start;padding-top:4px}
+.compo{display:grid;gap:6px;align-content:start;padding-top:2px;overflow-y:auto}
+.compo .row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.compo .row::-webkit-scrollbar{display:none}
+.compo .row .chip{flex:0 0 auto;white-space:nowrap}
+.credit{font-size:11px;color:var(--mute)}
 .chip.alt[aria-pressed="true"]{background:var(--ink);border-color:var(--ink)}
 .opts{display:flex;flex-wrap:wrap;gap:8px;align-content:start;padding-top:4px}
 .chip{font:700 13px var(--f-ui);color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
@@ -104,23 +111,30 @@ input[type=file]{display:none}
     <video id="video" playsinline muted autoplay></video>
     <div class="ov-top">
       <span class="brand"><i>♥</i>男友相機</span>
-      <span class="now"><span class="rec" id="rec"></span><b id="modeName">人像</b>·<span id="fname">原色</span></span>
+      <span class="now"><span class="rec" id="rec"></span><b id="modeName">秋秋拍法</b>·<span id="fname">原色</span></span>
     </div>
     <div class="tip" id="tip" aria-live="polite"></div>
     <span class="tag" id="tag">正在開啟鏡頭…</span>
+    <div class="zoom" id="zoom" hidden>
+      <button data-z="0.5" aria-pressed="false">.5×</button>
+      <button data-z="1" aria-pressed="true">1×</button>
+      <button data-z="1.5" aria-pressed="false">1.5</button>
+      <button data-z="2" aria-pressed="false">2×</button>
+      <button data-z="3" aria-pressed="false">3×</button>
+    </div>
     <div class="bubble" id="bubble" hidden><span class="arrow" id="arrow"></span><span id="btext"></span></div>
     <div class="flash" id="flash"></div>
   </div>
 
   <section class="panel">
     <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="false" data-tab="compo" id="tab-compo">構圖</button>
-      <button role="tab" aria-selected="true" data-tab="filters" id="tab-filters">濾鏡</button>
+      <button role="tab" aria-selected="true" data-tab="compo" id="tab-compo">構圖</button>
+      <button role="tab" aria-selected="false" data-tab="filters" id="tab-filters">濾鏡</button>
       <button role="tab" aria-selected="false" data-tab="ev" id="tab-ev">曝光</button>
       <button role="tab" aria-selected="false" data-tab="adjust" id="tab-adjust">微調</button>
       <button role="tab" aria-selected="false" data-tab="frame" id="tab-frame">相框</button>
     </div>
-    <div id="pane-compo" class="pane compo" hidden>
+    <div id="pane-compo" class="pane compo">
       <div class="seg" id="foodAngle" hidden>
         <span class="lbl">角度</span>
         <button class="chip small alt" data-fa="top" aria-pressed="true">俯拍 90°</button>
@@ -128,7 +142,7 @@ input[type=file]{display:none}
       </div>
       <div class="seg" id="compo"></div>
     </div>
-    <div id="pane-filters" class="pane strip"></div>
+    <div id="pane-filters" class="pane strip" hidden></div>
     <div id="pane-ev" class="pane" hidden>
       <div class="ev">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -148,7 +162,8 @@ input[type=file]{display:none}
   </section>
 
   <div class="modes">
-    <button data-mode="portrait" aria-pressed="true">人像</button>
+    <button data-mode="qiu" aria-pressed="true">秋秋拍法</button>
+    <button data-mode="portrait" aria-pressed="false">人像</button>
     <button data-mode="landscape" aria-pressed="false">風景</button>
     <button data-mode="dining" aria-pressed="false">聚餐</button>
     <button data-mode="food" aria-pressed="false">美食</button>
@@ -210,6 +225,8 @@ const LIB={
 };
 /* 角度目標：tilt = 鏡頭仰角（0 = 平視，-90 = 正下方） */
 const MODES={
+  qiu:{name:"秋秋拍法",filters:["none","cream","kclear","fujineg","gold","ccd","peach","portra","air","tasty","maillard","bw"],
+    target:{tilt:-5,tol:10},tips:["拍法學自抖音 @秋秋脾氣好"]},
   portrait:{name:"人像",filters:["none","cream","kclear","coolfair","peach","ccd","portra","soft","air","fujineg","hk","polaroid","bw"],
     target:{tilt:-8,tol:8},tips:["眼睛放在上面那條線","手機比眼睛高一點，微微往下拍","找側面來的光，避開頭頂光","腳底對齊畫面最下緣，腿會變長"]},
   landscape:{name:"風景",filters:["none","fujineg","tealorange","gold","golden","sky","moody","morandi","maillard","cyber","blackgold","mist","bw"],
@@ -222,6 +239,150 @@ const MODES={
 };
 /* 構圖模板：直接在畫面上框出「什麼放哪裡」。座標是畫面比例 0~1；ghost = 淡框（留白、天空） */
 const COMPO={
+  /* 秋秋拍法：整理自抖音 @秋秋脾氣好 約 80 支拍照教學影片。藍色 = 人要放的格子，紅十字 = 手／頭的位置，紅斜線 = 對角線構圖 */
+  qiu:[
+    /* ---------- 情侶・約會 ---------- */
+    {cat:"情侶約會",id:"hand",n:"牽手照",land:1,zoom:1,steps:["手機橫過來","眉毛卡在第一條線","牽著的手從右下伸進來"],
+      hl:[{h:1/3,t:"眉毛卡在這條線"}],z:[{x:.62,y:.6,w:.36,h:.38,t:"牽著的手",ghost:1}]},
+    {cat:"情侶約會",id:"flowerGift",n:"收到花",zoom:1,tilt:{tilt:-5,tol:12},steps:["手機放低一點","花遞向鏡頭、放在下面中間那格","伸手摸她的頭入鏡"],
+      hl:[{h:1/3,t:"眉毛卡在這條線"}],z:[{x:1/3,y:2/3,w:1/3,h:1/3,t:"花",fill:1},{x:2/3,y:.02,w:.31,h:.3,t:"你的手",ghost:1}]},
+    {cat:"情侶約會",id:"bouquet",n:"捧花約會",zoom:1,tilt:{tilt:-15,tol:12},steps:["手機抬高一點往下拍","頭卡在第一條線","花離臉一個拳頭"],
+      hl:[{h:1/3,t:"頭卡在這條線"}],z:[{x:.15,y:.55,w:.7,h:.43,t:"花",ghost:1}]},
+    {cat:"情侶約會",id:"nightDate",n:"夜景約會",zoom:1,steps:["後退 2 公尺","人放右邊六格","城市夜景留在左邊"],
+      hl:[{v:1/3}],z:[{x:1/3,y:0,w:2/3,h:1,t:"人放右邊 6 格",fill:1},{x:0,y:.2,w:1/3,h:.5,t:"夜景",ghost:1}]},
+    {cat:"情侶約會",id:"tripod",n:"情侶用腳架",zoom:1,tilt:{tilt:0,tol:8},steps:["手機架到跟人一樣高","男生站邊邊","女生放左下角四格"],
+      hl:[],z:[{x:0,y:1/3,w:2/3,h:2/3,t:"女生放左下 4 格",fill:1},{x:2/3,y:.25,w:1/3,h:.75,t:"男生",ghost:1}]},
+    {cat:"情侶約會",id:"leaf",n:"撒葉子・比手勢",zoom:1,tilt:{tilt:-15,tol:12},steps:["手或葉子放在紅色十字","手機抬高一點往下拍"],
+      hl:[],cross:{x:1/3,y:1/3,t:"手／葉子放這"},z:[{x:.22,y:.3,w:.6,h:.7,t:"人",ghost:1}]},
+
+    /* ---------- 街道・城市 ---------- */
+    {cat:"街道城市",id:"avenue",n:"林蔭大道",zoom:2,steps:["先後退 3 公尺","放大 2 倍","人放右邊六格"],
+      hl:[{v:1/3}],z:[{x:1/3,y:0,w:2/3,h:1,t:"人放右邊 6 格",fill:1}]},
+    {cat:"街道城市",id:"road",n:"公路",zoom:1,tilt:{tilt:0,tol:8},steps:["攝影師平行蹲下","人放左下角四格","頭放在紅色十字"],
+      hl:[],cross:{x:1/3,y:1/3,t:"頭放這"},z:[{x:0,y:1/3,w:2/3,h:2/3,t:"人放左下 4 格",fill:1}]},
+    {cat:"街道城市",id:"lamp",n:"路燈下",zoom:1,tilt:{tilt:-10,tol:10},steps:["後退一點","手機抬高一點","頭放在右邊紅十字"],
+      hl:[{h:1/3}],cross:{x:2/3,y:1/3,t:"頭放這"},z:[]},
+    {cat:"街道城市",id:"bridge",n:"天橋夜景",zoom:1,tilt:{tilt:-15,tol:12},steps:["人站欄杆正中間","手機舉到頭的高度往下拍","車流沿著紅色斜線"],
+      hl:[],diag:1,z:[{x:1/3,y:.25,w:1/3,h:.6,t:"人",fill:1}]},
+    {cat:"街道城市",id:"bench",n:"公園長椅",zoom:2,tilt:{tilt:0,tol:8},steps:["走到側面、微微蹲下","放大 2 倍","人放右邊六格"],
+      hl:[{v:1/3}],z:[{x:1/3,y:0,w:2/3,h:1,t:"人放右邊 6 格",fill:1}]},
+    {cat:"街道城市",id:"market",n:"超市便利店",zoom:2,steps:["走到貨架盡頭往裡拍","放大 2 倍","眉毛卡第一條線"],
+      hl:[{h:1/3,t:"眉毛卡在這條線"}],z:[]},
+    {cat:"街道城市",id:"landmark",n:"地標建築",zoom:1,tilt:{tilt:0,tol:8},steps:["攝影師後退 5 公尺","蹲下來拍","人放左下角四格"],
+      hl:[],z:[{x:0,y:1/3,w:2/3,h:2/3,t:"人放左下 4 格",fill:1},{x:1/3,y:0,w:2/3,h:.4,t:"建築",ghost:1}]},
+    {cat:"街道城市",id:"compress",n:"地標壓縮感",zoom:3,steps:["退到很遠的地方","放大 3 倍（背景變大、人群變少）","人放中上兩格"],
+      hl:[],z:[{x:1/3,y:0,w:1/3,h:2/3,t:"人放中上 2 格",fill:1}]},
+    {cat:"街道城市",id:"crowd",n:"人很多的景點",zoom:1.5,tilt:{tilt:5,tol:10},steps:["攝影師後退 4 公尺再蹲下","鏡頭往上拍、擋掉人群","人在下、建築頂在上"],
+      hl:[],z:[{x:1/3,y:1/3,w:1/3,h:2/3,t:"人",fill:1},{x:.15,y:0,w:.7,h:.33,t:"建築頂",ghost:1}]},
+    {cat:"街道城市",id:"xmas",n:"聖誕樹",zoom:1,tilt:{tilt:5,tol:10},steps:["人離樹遠一點","鏡頭壓低往上拍","人放左下角四格"],
+      hl:[],z:[{x:0,y:1/3,w:2/3,h:2/3,t:"人放左下 4 格",fill:1},{x:1/3,y:0,w:2/3,h:.6,t:"聖誕樹",ghost:1}]},
+
+    /* ---------- 自然風景 ---------- */
+    {cat:"自然風景",id:"autumn",n:"樹林・秋天",zoom:1.5,tilt:{tilt:0,tol:8},steps:["手機放低，跟對方胯部一樣高","放大 1.5 倍","人放右下四格"],
+      hl:[],z:[{x:1/3,y:1/3,w:2/3,h:2/3,t:"人放右下 4 格",fill:1}]},
+    {cat:"自然風景",id:"ginkgo",n:"銀杏樹下",zoom:3,tilt:{tilt:5,tol:10},steps:["蹲下往上拍","放大 3 倍","人放中下兩格"],
+      hl:[],z:[{x:1/3,y:1/3,w:1/3,h:2/3,t:"人放中下 2 格",fill:1}]},
+    {cat:"自然風景",id:"grass",n:"草地",zoom:1,steps:["離對方兩隻手臂遠","頭頂留一格","人放中下兩格"],
+      hl:[{h:1/3}],z:[{x:0,y:0,w:1,h:1/3,t:"頭頂留一格",ghost:1},{x:1/3,y:1/3,w:1/3,h:2/3,t:"人放中下 2 格",fill:1}]},
+    {cat:"自然風景",id:"flowerWall",n:"花牆",zoom:2,steps:["後退一點、打開 2 倍","人站著別動","人放中下兩格（腿顯長）"],
+      hl:[],z:[{x:1/3,y:1/3,w:1/3,h:2/3,t:"人放中下 2 格",fill:1}]},
+    {cat:"自然風景",id:"lotus",n:"荷花・花叢",zoom:1.5,steps:["攝影師走到正面","花佔一半、人佔一半"],
+      hl:[{v:1/2}],z:[{x:0,y:0,w:.5,h:1,t:"花",ghost:1},{x:.5,y:0,w:.5,h:1,t:"人",fill:1}]},
+    {cat:"自然風景",id:"canola",n:"花田",zoom:1,tilt:{tilt:0,tol:8},steps:["人走進花田","前面的花擋在鏡頭前當前景"],
+      hl:[],z:[{x:0,y:.72,w:1,h:.28,t:"前景的花",ghost:1},{x:.25,y:.2,w:.5,h:.55,t:"人",fill:1}]},
+    {cat:"自然風景",id:"chair",n:"坐椅子",zoom:1,tilt:{tilt:0,tol:8},steps:["手機放低，跟對方大腿一樣高","人放中下六格"],
+      hl:[{h:1/3}],z:[{x:0,y:1/3,w:1,h:2/3,t:"人放中下 6 格",fill:1}]},
+    {cat:"自然風景",id:"ground",n:"坐在地上",zoom:2,tilt:{tilt:0,tol:8},steps:["手機跟對方肩膀一樣高","放大 2 倍","頭卡在紅色十字"],
+      hl:[],cross:{x:1/3,y:1/3,t:"頭放這"},z:[]},
+    {cat:"自然風景",id:"bigTree",n:"草原大樹",zoom:1,tilt:{tilt:0,tol:8},steps:["後退到拍得到整棵樹","微微蹲下","樹放左邊、人放右下"],
+      hl:[],z:[{x:0,y:.05,w:.55,h:.7,t:"樹",ghost:1},{x:2/3,y:1/3,w:1/3,h:2/3,t:"人",fill:1}]},
+    {cat:"自然風景",id:"snowMtn",n:"雪山",land:1,zoom:1,steps:["手機橫過來","攝影師蹲下","人站右邊那條線、雪山在左"],
+      hl:[{v:2/3}],z:[{x:.55,y:.15,w:.25,h:.85,t:"人",fill:1},{x:0,y:0,w:.55,h:.6,t:"雪山",ghost:1}]},
+    {cat:"自然風景",id:"waterfall",n:"瀑布",zoom:1,steps:["後退一點","頭放在右邊紅十字","瀑布留在左邊"],
+      hl:[],cross:{x:2/3,y:1/3,t:"頭放這"},z:[{x:0,y:0,w:.5,h:.8,t:"瀑布",ghost:1}]},
+    {cat:"自然風景",id:"stream",n:"溪流・河邊",zoom:1,steps:["頭頂留一格放山和水","人站中間"],
+      hl:[{h:1/3}],z:[{x:0,y:0,w:1,h:1/3,t:"頭頂留一格",ghost:1},{x:.2,y:1/3,w:.6,h:2/3,t:"人",fill:1}]},
+    {cat:"自然風景",id:"snow",n:"雪地",zoom:1,tilt:{tilt:-15,tol:12},steps:["走到斜側 45 度","人放中下六格"],
+      hl:[{h:1/3}],z:[{x:0,y:1/3,w:1,h:2/3,t:"人放中下 6 格",fill:1}]},
+    {cat:"自然風景",id:"autumnL",n:"樹林・橫拍",land:1,zoom:1,steps:["手機橫過來","眉毛卡在第一條線"],
+      hl:[{h:1/3,t:"眉毛卡在這條線"}],z:[]},
+
+    /* ---------- 海邊・水邊 ---------- */
+    {cat:"海邊水邊",id:"beach",n:"海邊",zoom:1,tilt:{tilt:0,tol:8},steps:["後退 3 公尺","手機跟腰一樣高","人放右下角四格"],
+      hl:[],z:[{x:1/3,y:1/3,w:2/3,h:2/3,t:"人放右下 4 格",fill:1}]},
+    {cat:"海邊水邊",id:"sand",n:"躺沙灘",zoom:1,tilt:{tilt:-60,tol:20},steps:["攝影師走到她頭的後面","手機舉高往下拍","人放中下兩格"],
+      hl:[],z:[{x:1/3,y:1/3,w:1/3,h:2/3,t:"人放中下 2 格",fill:1}]},
+    {cat:"海邊水邊",id:"pool",n:"泳池",zoom:2,tilt:{tilt:-60,tol:20},steps:["站在池邊","放大 2 倍從上往下拍","頭放正中間那格"],
+      hl:[],z:[{x:1/3,y:1/3,w:1/3,h:1/3,t:"頭放中間",fill:1}]},
+    {cat:"海邊水邊",id:"windmill",n:"風車・海岸",zoom:1,tilt:{tilt:0,tol:8},steps:["後退 8 公尺","完全蹲下","人站右邊那條直線"],
+      hl:[{v:2/3,t:""}],z:[{x:.58,y:.2,w:.18,h:.75,t:"人",fill:1}]},
+    {cat:"海邊水邊",id:"sunset",n:"湖邊日落",zoom:3,steps:["放大 3 倍","人站中間那一條","太陽下山後開閃光燈"],
+      hl:[{v:1/3},{v:2/3}],z:[{x:1/3,y:.2,w:1/3,h:.8,t:"人站中間",fill:1}]},
+    {cat:"海邊水邊",id:"silhouette",n:"逆光剪影",zoom:1,ev:-1.2,tilt:{tilt:0,tol:8},steps:["人背對夕陽","曝光已經幫你壓暗","人放中下兩格"],
+      hl:[],z:[{x:1/3,y:1/3,w:1/3,h:2/3,t:"人放中下 2 格",fill:1}]},
+    {cat:"海邊水邊",id:"bluehour",n:"藍調夜景",zoom:2,steps:["手機跟她肚子一樣高","放大 2 倍、開閃光燈","頭放在紅色十字"],
+      hl:[],cross:{x:1/2,y:1/3,t:"頭放這"},z:[]},
+    {cat:"海邊水邊",id:"aqua",n:"海洋館・蹲拍",land:1,zoom:1,tilt:{tilt:5,tol:10},steps:["手機橫過來","蹲下去稍微往上拍","人放左邊六格"],
+      hl:[],z:[{x:0,y:0,w:2/3,h:1,t:"人放左邊 6 格",fill:1}]},
+    {cat:"海邊水邊",id:"tunnel",n:"隧道・長廊",zoom:.5,steps:["先後退 2 公尺","切 0.5 倍廣角","人站中間這一條"],
+      hl:[{v:1/3},{v:2/3}],z:[{x:1/3,y:.3,w:1/3,h:.7,t:"人站中間",fill:1}]},
+
+    /* ---------- 餐廳・室內 ---------- */
+    {cat:"餐廳室內",id:"meal",n:"餐廳吃飯",zoom:1,tilt:{tilt:-15,tol:12},steps:["用 1 倍","菜放最下面一排","手機抬高一點"],
+      hl:[{h:2/3}],z:[{x:0,y:2/3,w:1,h:1/3,t:"菜放最下面一排",fill:1}]},
+    {cat:"餐廳室內",id:"mealL",n:"餐廳・人在左",zoom:1,steps:["人放左邊六格","右邊放菜"],
+      hl:[{v:2/3}],z:[{x:0,y:0,w:2/3,h:1,t:"人放左邊 6 格",fill:1},{x:2/3,y:.55,w:1/3,h:.45,t:"菜",ghost:1}]},
+    {cat:"餐廳室內",id:"mealSide",n:"餐廳・側面",zoom:1,tilt:{tilt:0,tol:8},steps:["走到側面、蹲低","吊燈當背景","人放右邊六格"],
+      hl:[{v:1/3}],z:[{x:1/3,y:0,w:2/3,h:1,t:"人放右邊 6 格",fill:1}]},
+    {cat:"餐廳室內",id:"drink",n:"拿飲料",zoom:1,steps:["離對方兩隻手臂遠","頭頂留一格空白"],
+      hl:[{h:1/3,t:"頭頂靠這條線"}],z:[{x:0,y:0,w:1,h:1/3,t:"頭頂留一格（空著）",ghost:1},{x:.15,y:1/3,w:.7,h:2/3,t:"人",fill:1}]},
+    {cat:"餐廳室內",id:"hotpot",n:"火鍋・聚餐",zoom:1,tilt:{tilt:-10,tol:10},steps:["後退一點，讓菜擋在前面","人放中下六格"],
+      hl:[{h:1/3,t:"頭頂靠這條線"}],z:[{x:0,y:1/3,w:1,h:2/3,t:"人＋桌子放這 6 格",fill:1}]},
+    {cat:"餐廳室內",id:"sushi",n:"日料・端盤子",zoom:1,tilt:{tilt:-30,tol:15},steps:["手機舉高過頭往下拍","人放右上角四格","盤子放下面"],
+      hl:[],z:[{x:1/3,y:0,w:2/3,h:2/3,t:"人放右上 4 格",fill:1},{x:0,y:2/3,w:1,h:1/3,t:"盤子",ghost:1}]},
+    {cat:"餐廳室內",id:"bbq",n:"夜宵・燒烤",zoom:1,tilt:{tilt:-45,tol:20},steps:["手機舉到最高往下拍","人沿著紅色斜線"],
+      hl:[],diag:1,z:[]},
+    {cat:"餐廳室內",id:"hotel",n:"飯店房間",zoom:1.5,steps:["走近一點、放大 1.5 倍","手卡在第一條線","開閃光燈"],
+      hl:[{h:1/3,t:"手卡在這條線"}],z:[]},
+    {cat:"餐廳室內",id:"ktv",n:"KTV",zoom:1,steps:["不要關氛圍燈","打開閃光燈","拿麥克風或道具"],
+      hl:[],z:[{x:.15,y:.2,w:.7,h:.8,t:"人",ghost:1}]},
+    {cat:"餐廳室內",id:"mirror",n:"對鏡自拍",zoom:1,tilt:{tilt:0,tol:10},steps:["手機放胸前","稍微往外斜","眼睛看手機螢幕中間"],
+      hl:[],z:[{x:.2,y:.1,w:.6,h:.9,t:"鏡子裡的你",ghost:1}]},
+    {cat:"餐廳室內",id:"exhibit",n:"看展",zoom:2,steps:["放大 2 倍","人站圓形裝置正中間","或站玻璃前拍倒影"],
+      hl:[{v:1/3},{v:2/3}],z:[{x:1/3,y:.25,w:1/3,h:.75,t:"人站正中間",fill:1}]},
+
+    /* ---------- 古風・建築 ---------- */
+    {cat:"古風建築",id:"town",n:"古鎮・漢服",zoom:3,steps:["走到對面","放大 3 倍","人和塔一起入鏡"],
+      hl:[],z:[{x:.4,y:.3,w:.4,h:.7,t:"人",fill:1},{x:0,y:0,w:.45,h:.6,t:"塔",ghost:1}]},
+    {cat:"古風建築",id:"temple",n:"寺廟・靠柱子",zoom:2,steps:["靠在柱子上","放大 2 倍","頭卡在紅色十字"],
+      hl:[],cross:{x:2/3,y:1/3,t:"頭放這"},z:[{x:0,y:0,w:.5,h:.7,t:"塔",ghost:1}]},
+    {cat:"古風建築",id:"oldBuild",n:"古建築",zoom:1,steps:["建築留在左邊","人放右邊六格"],
+      hl:[{v:1/3}],z:[{x:1/3,y:0,w:2/3,h:1,t:"人放右邊 6 格",fill:1}]},
+    {cat:"古風建築",id:"arch",n:"拱門・畫框",zoom:1,steps:["用拱門或窗框當畫框","塔放一邊、人放另一邊","人抬頭看塔"],
+      hl:[],z:[{x:0,y:.05,w:.5,h:.85,t:"塔",ghost:1},{x:.55,y:.3,w:.35,h:.7,t:"人",fill:1}]},
+    {cat:"古風建築",id:"railFar",n:"欄杆・遠景",zoom:1.5,steps:["後退大約 4 個台階","放大 1.5 倍","人放左邊六格"],
+      hl:[{v:2/3}],z:[{x:0,y:0,w:2/3,h:1,t:"人放左邊 6 格",fill:1}]},
+    {cat:"古風建築",id:"railSide",n:"欄杆延伸線",zoom:1,steps:["攝影師走到側面","欄杆沿著紅色斜線帶到人","可開人像模式"],
+      hl:[],diag:1,z:[{x:.55,y:.1,w:.4,h:.65,t:"人",fill:1}]},
+    {cat:"古風建築",id:"railLean",n:"趴欄杆",zoom:2,steps:["走到對方側面，不要正面拍","放大 2 倍","人放右上四格"],
+      hl:[],z:[{x:1/3,y:0,w:2/3,h:2/3,t:"人放右上 4 格",fill:1}]},
+    {cat:"古風建築",id:"stairs",n:"樓梯・橫拍",land:1,zoom:1,steps:["手機橫過來","用 1 倍","人放中下兩格"],
+      hl:[],z:[{x:1/3,y:1/3,w:1/3,h:2/3,t:"人放中下 2 格",fill:1}]},
+    {cat:"古風建築",id:"grad",n:"畢業照",zoom:.5,steps:["縮到 0.5 倍","人放右下角四格","丟帽子的瞬間按快門"],
+      hl:[],z:[{x:1/3,y:1/3,w:2/3,h:2/3,t:"人放右下 4 格",fill:1}]},
+
+    /* ---------- 夜景・特殊 ---------- */
+    {cat:"夜景特殊",id:"night",n:"夜景・發光處",zoom:2,steps:["站在發光的燈旁邊","放大 2 倍","人放右下角四格"],
+      hl:[],z:[{x:1/3,y:1/3,w:2/3,h:2/3,t:"人放右下 4 格",fill:1},{x:0,y:0,w:.4,h:.35,t:"燈光",ghost:1}]},
+    {cat:"夜景特殊",id:"sakura",n:"夜櫻・夜花",zoom:1,steps:["離 2 公尺","開閃光燈","人放右下角四格"],
+      hl:[],z:[{x:1/3,y:1/3,w:2/3,h:2/3,t:"人放右下 4 格",fill:1}]},
+    {cat:"夜景特殊",id:"rain",n:"下雨天",zoom:.5,tilt:{tilt:10,tol:12},steps:["撐透明雨傘","手電筒從她背後往上照","0.5 倍從低處往上拍"],
+      hl:[],z:[{x:.15,y:0,w:.7,h:.45,t:"透明雨傘",ghost:1},{x:.25,y:.35,w:.5,h:.65,t:"人",fill:1}]},
+    {cat:"夜景特殊",id:"square",n:"正方形斜拍",square:1,freeRoll:1,zoom:1,steps:["畫面變成正方形","手機斜斜的拍，更有感覺"],
+      hl:[],z:[{x:.2,y:.25,w:.6,h:.75,t:"人",ghost:1}]},
+    {cat:"夜景特殊",id:"selfie05",n:"0.5 倍自拍",zoom:.5,steps:["切 0.5 倍廣角","手伸向鏡頭","背景整片都拍進來"],
+      hl:[],z:[{x:.1,y:.45,w:.5,h:.55,t:"伸出的手",ghost:1}]},
+  ],
   portrait:[
     {id:"half",n:"半身",tip:"臉放進小框，眼睛對齊上方那條線",hl:[{h:1/3}],z:[
       {x:.2,y:.14,w:.6,h:.86,t:"人物（半身）"},{x:.35,y:.2,w:.3,h:.24,t:"臉"}]},
@@ -264,7 +425,8 @@ const ADJ=[
 ];
 const ADJ0=Object.fromEntries(ADJ.map(a=>[a.k,(a.def??0)/100]));
 
-const S={compo:{portrait:"half",landscape:"sky",dining:"six",food:"one"},mode:"portrait",pick:{portrait:"none",landscape:"none",dining:"none",food:"none"},adj:{...ADJ0},ev:0,frame:"none",stamp:false,grid:true,
+const S={compo:{qiu:"avenue",portrait:"half",landscape:"sky",dining:"six",food:"one"},mode:"qiu",pick:{qiu:"none",portrait:"none",landscape:"none",dining:"none",food:"none"},
+  zoom:1,dz:1,zoomNote:"",adj:{...ADJ0},ev:0,frame:"none",stamp:false,grid:true,
   foodAngle:"top",live:false,src:null,stream:null,facing:"environment",u:null,okPrev:false,noCam:false,isSample:false};
 const $=id=>document.getElementById(id);
 const view=$("view"),video=$("video");
@@ -311,11 +473,17 @@ const pad2=n=>String(n).padStart(2,"0");
 function stampText(){const t=new Date();return `'${pad2(t.getFullYear()%100)} ${pad2(t.getMonth()+1)} ${pad2(t.getDate())}`}
 
 const work=document.createElement("canvas"),wctx=work.getContext("2d",{willReadFrequently:true});
+/* 鏡頭畫面的裁切：數位放大、正方形 */
+function crop(v){
+  const vw=v.videoWidth,vh=v.videoHeight;let cw=vw/S.dz,ch=vh/S.dz;
+  if(compoNow().square){const m=Math.min(cw,ch);cw=ch=m}
+  return {sx:(vw-cw)/2,sy:(vh-ch)/2,sw:cw,sh:ch};
+}
 function render(target,src,maxSide,{mirror=false,decor=true}={}){
-  const sw=src.videoWidth||src.width,sh=src.videoHeight||src.height;if(!sw)return false;
+  const r=src.videoWidth?crop(src):{sx:0,sy:0,sw:src.width,sh:src.height};const sw=r.sw,sh=r.sh;if(!sw)return false;
   const sc=Math.min(1,maxSide/Math.max(sw,sh)),w=Math.round(sw*sc),h=Math.round(sh*sc);
   if(work.width!==w||work.height!==h){work.width=w;work.height=h}
-  wctx.save();if(mirror){wctx.translate(w,0);wctx.scale(-1,1)}wctx.drawImage(src,0,0,w,h);wctx.restore();
+  wctx.save();if(mirror){wctx.translate(w,0);wctx.scale(-1,1)}wctx.drawImage(src,r.sx,r.sy,r.sw,r.sh,0,0,w,h);wctx.restore();
   processInto(wctx,w,h,params(filter(),S.adj,S.ev));
   if(decor&&S.stamp){const fs=Math.round(Math.min(w,h)*.045);wctx.font=`800 ${fs}px Nunito,monospace`;wctx.textAlign="right";
     wctx.shadowColor="rgba(255,120,30,.8)";wctx.shadowBlur=fs*.4;wctx.fillStyle="#ff8a2a";wctx.fillText(stampText(),w-fs*.9,h-fs*.9);wctx.shadowBlur=0}
@@ -355,12 +523,12 @@ function initSensors(){
 }
 
 /* ---------- 取景畫面上的格線與水平儀 ---------- */
-function target(){const m=MODES[S.mode];return S.mode==="food"?m.angles[S.foodAngle]:m.target}
+function target(){const m=MODES[S.mode],tp=compoNow();if(tp.tilt)return tp.tilt;return S.mode==="food"?m.angles[S.foodAngle]:m.target}
 function judge(){
   const p=pose();if(!p)return null;const t=target();
   if(t.bubble){const dx=S.u.x,dy=S.u.y,dist=Math.hypot(dx,dy)/RAD;return {p,t,ok:dist<t.tol,bubble:true}}
-  const err=p.tilt-t.tilt,rollDeg=p.roll/RAD;
-  return {p,t,err,rollDeg,ok:Math.abs(err)<=t.tol&&Math.abs(rollDeg)<2.5};
+  const free=!!compoNow().freeRoll,err=p.tilt-t.tilt,rollDeg=free?0:p.roll/RAD;
+  return {p:free?{...p,roll:0}:p,t,err,rollDeg,ok:Math.abs(err)<=t.tol&&Math.abs(rollDeg)<2.5};
 }
 function drawGuides(box,J){
   const c=view.getContext("2d"),{x,y,w,h}=box,lw=Math.max(1.5,w/320),cx=x+w/2,cy=y+h/2,mn=Math.min(w,h);
@@ -385,10 +553,19 @@ function drawGuides(box,J){
       c.setLineDash(z.ghost?[4*lw,5*lw]:[9*lw,6*lw]);c.lineWidth=z.ghost?lw:lw*1.8;
       c.strokeStyle=z.ghost?"rgba(255,255,255,.75)":"#ff7fa3";c.fillStyle=z.ghost?"rgba(255,255,255,.06)":z.fill?"rgba(120,170,255,.32)":"rgba(255,127,163,.14)";
       c.beginPath();c.roundRect?c.roundRect(zx,zy,zw,zh,rad):c.rect(zx,zy,zw,zh);c.fill();c.stroke();c.setLineDash([]);
-      const tw=c.measureText(z.t).width+fs*1.1,th=fs*1.7,lx=Math.min(zx+fs*.4,x+w-tw-2),ly=zy+fs*.4;
+      const tw=c.measureText(z.t).width+fs*1.1,th=fs*1.7,lx=Math.min(zx+fs*.4,x+w-tw-2),ly=Math.max(zy+fs*.4,y+h*.15);
       c.fillStyle=z.ghost?"rgba(255,255,255,.9)":"#ff7fa3";c.beginPath();c.roundRect?c.roundRect(lx,ly,tw,th,th/2):c.rect(lx,ly,tw,th);c.fill();
       c.fillStyle=z.ghost?"#5a3e4b":"#fff";c.fillText(z.t,lx+fs*.55,ly+th/2);
     }
+    // 紅色斜線：對角線構圖
+    if(tp.diag){c.setLineDash([10*lw,7*lw]);c.lineWidth=lw*2.6;c.strokeStyle="#ff4d5e";
+      c.beginPath();c.moveTo(x+w*.04,y+h*.96);c.lineTo(x+w*.96,y+h*.04);c.stroke();c.setLineDash([]);
+      pill("沿著這條斜線",x+w*.08,y+h*.8,"#ff4d5e","#fff")}
+    // 紅色十字：手、葉子或頭要放的位置
+    if(tp.cross){const px=x+w*tp.cross.x,py=y+h*tp.cross.y,L=mn*.09;
+      c.setLineDash([5*lw,4*lw]);c.lineWidth=lw*2.8;c.strokeStyle="#ff4d5e";
+      c.beginPath();c.moveTo(px-L,py);c.lineTo(px+L,py);c.moveTo(px,py-L);c.lineTo(px,py+L);c.stroke();c.setLineDash([]);
+      pill(tp.cross.t,px+L*.5,py+L*.5,"#ff4d5e","#fff")}
     // 重點線的說明
     for(const l of tp.hl){if(!l.t||l.h==null)continue;const tw=c.measureText(l.t).width+fs*1.1;pill(l.t,x+w-tw-fs*.4,y+h*l.h-fs*2.1,"#ff7fa3","#fff")}
   }
@@ -428,17 +605,45 @@ function compoDef(){return COMPO[S.mode].find(t=>t.id===S.compo[S.mode])}
 function compoNow(){const d=compoDef();return S.mode==="food"?d[S.foodAngle]:d}
 function buildCompo(){
   const box=$("compo");box.textContent="";
+  const pick=t=>{S.compo[S.mode]=t.id;tipIdx=0;if(!S.grid){S.grid=true;$("gridBtn").setAttribute("aria-pressed",true)}buildCompo();applyTemplate();updateTip()};
+  const chip=(txt,on,fn,alt)=>{const b=document.createElement("button");b.className="chip small"+(alt?" alt":"");b.textContent=txt;b.setAttribute("aria-pressed",on);b.onclick=fn;return b};
+  if(S.mode==="qiu"){
+    // 兩排：上排選場景分類、下排選場景
+    const cats=[...new Set(COMPO.qiu.map(t=>t.cat))];if(!cats.includes(S.qiuCat))S.qiuCat=compoDef().cat;
+    const r1=document.createElement("div");r1.className="row";const r2=document.createElement("div");r2.className="row";
+    cats.forEach(c=>r1.append(chip(c,c===S.qiuCat,()=>{S.qiuCat=c;const first=COMPO.qiu.find(t=>t.cat===c);if(compoDef().cat!==c)pick(first);else buildCompo()},1)));
+    COMPO.qiu.filter(t=>t.cat===S.qiuCat).forEach(t=>r2.append(chip(t.n,t.id===S.compo.qiu,()=>pick(t))));
+    box.append(r1,r2);
+    const n=document.createElement("span");n.className="credit";n.textContent="♡ 拍法整理自抖音 @秋秋脾氣好 的拍照教學影片";box.append(n);
+    return;
+  }
   const l=document.createElement("span");l.className="lbl";l.textContent="版型";box.append(l);
-  COMPO[S.mode].forEach(t=>{
-    const b=document.createElement("button");b.className="chip small";b.textContent=t.n;b.setAttribute("aria-pressed",t.id===S.compo[S.mode]);
-    b.onclick=()=>{S.compo[S.mode]=t.id;tipIdx=0;if(!S.grid){S.grid=true;$("gridBtn").setAttribute("aria-pressed",true)}buildCompo();updateTip()};
-    box.append(b);
-  });
+  COMPO[S.mode].forEach(t=>box.append(chip(t.n,t.id===S.compo[S.mode],()=>pick(t))));
+}
+/* 變焦：手機支援就用真的鏡頭變焦，不支援就裁切放大 */
+async function setZoom(z){
+  S.zoom=z;S.dz=1;S.zoomNote="";
+  const tr=S.stream&&S.stream.getVideoTracks()[0],caps=tr&&tr.getCapabilities?tr.getCapabilities():{};
+  const hw=caps.zoom&&z>=caps.zoom.min&&z<=caps.zoom.max;
+  if(hw){try{await tr.applyConstraints({advanced:[{zoom:z}]})}catch(e){S.dz=Math.max(1,z)}}
+  else{S.dz=Math.max(1,z);if(z<1)S.zoomNote="網頁開不了 0.5 倍廣角，請再往後退一點"}
+  if(!hw&&caps.zoom&&z>=1){try{await tr.applyConstraints({advanced:[{zoom:caps.zoom.min<=1?1:caps.zoom.min}]})}catch(e){}}
+  document.querySelectorAll("[data-z]").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.z===z));
+  updateTip();
+}
+function applyTemplate(){
+  const tp=compoNow();if(tp.zoom!=null&&tp.zoom!==S.zoom)setZoom(tp.zoom);else if(tp.zoom==null&&S.mode!=="qiu"&&S.zoom<1)setZoom(1);
+  // 有指定曝光的場景（例如逆光剪影）自動調好；換到別的場景就回到 0
+  const ev=tp.ev??0;if(ev!==S.ev&&(tp.ev!=null||S.autoEv)){$("ev").value=Math.round(ev*10);$("ev").oninput()}S.autoEv=tp.ev!=null;
 }
 let tipIdx=0;
+const NUM="①②③④⑤";
 function updateTip(){
+  $("foodAngle").hidden=S.mode!=="food";
+  const tp=compoNow();
+  if(tp.steps){$("tip").textContent=tp.steps.map((s,i)=>NUM[i]+" "+s).join("　")+(S.zoomNote?"　("+S.zoomNote+")":"");return}
   const m=MODES[S.mode],tips=[compoDef().tip,...(S.mode==="food"?m.tips[S.foodAngle]:m.tips)];
-  $("tip").textContent=tips[tipIdx%tips.length];$("foodAngle").hidden=S.mode!=="food";
+  $("tip").textContent=tips[tipIdx%tips.length];
 }
 setInterval(()=>{tipIdx++;updateTip()},5000);
 
@@ -449,7 +654,7 @@ async function startCamera(){
   try{
     S.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:S.facing},width:{ideal:1920},height:{ideal:1440}}});
     video.srcObject=S.stream;await video.play().catch(()=>{});
-    S.live=true;$("tag").hidden=true;setLiveUI();
+    S.live=true;$("tag").hidden=true;setLiveUI();setZoom(compoNow().zoom??S.zoom);
     if(video.readyState>=2)buildFilters();else video.addEventListener("loadeddata",()=>buildFilters(),{once:true});
     requestAnimationFrame(loop);
   }catch(e){noCamera(e&&e.name==="NotAllowedError"?"沒有相機權限：請在瀏覽器設定裡允許使用相機":"找不到可用的鏡頭")}
@@ -468,15 +673,15 @@ function loop(t){
   requestAnimationFrame(loop);
 }
 function capture(){
-  const sw=video.videoWidth,sh=video.videoHeight;if(!sw)return;
+  if(!video.videoWidth)return;const r=crop(video),sw=r.sw,sh=r.sh;
   const sc=Math.min(1,2400/Math.max(sw,sh)),c=document.createElement("canvas");c.width=Math.round(sw*sc);c.height=Math.round(sh*sc);
-  const x=c.getContext("2d");if(S.facing==="user"){x.translate(c.width,0);x.scale(-1,1)}x.drawImage(video,0,0,c.width,c.height);
+  const x=c.getContext("2d");if(S.facing==="user"){x.translate(c.width,0);x.scale(-1,1)}x.drawImage(video,r.sx,r.sy,r.sw,r.sh,0,0,c.width,c.height);
   const f=$("flash");f.classList.add("go");requestAnimationFrame(()=>requestAnimationFrame(()=>f.classList.remove("go")));
   S.src=c;S.isSample=false;stopCamera();setLiveUI();buildFilters();refresh();
 }
 function setLiveUI(){
   const live=S.live;$("rec").classList.toggle("on",live);
-  $("flipBtn").hidden=!live;$("saveBtn").hidden=live||!S.src||S.isSample;
+  $("flipBtn").hidden=!live;$("saveBtn").hidden=live||!S.src||S.isSample;$("zoom").hidden=!live;
   const sh=$("shutterBtn"),re=!live&&!!S.src&&!S.isSample&&!S.noCam;
   sh.classList.toggle("retake",re);sh.setAttribute("aria-label",re?"重拍":"拍照");sh.firstElementChild.textContent=re?"↺":"♥";
   updateTip();
@@ -535,7 +740,8 @@ $("stampBtn").onclick=e=>{S.stamp=!S.stamp;e.currentTarget.setAttribute("aria-pr
 $("gridBtn").onclick=e=>{S.grid=!S.grid;e.currentTarget.setAttribute("aria-pressed",S.grid)};
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{
   S.mode=b.dataset.mode;tipIdx=0;document.querySelectorAll("[data-mode]").forEach(e=>e.setAttribute("aria-pressed",e===b));
-  buildFilters();buildCompo();refresh();updateTip()});
+  buildFilters();buildCompo();applyTemplate();refresh();updateTip()});
+document.querySelectorAll("[data-z]").forEach(b=>b.onclick=()=>setZoom(+b.dataset.z));
 document.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{
   S.foodAngle=b.dataset.fa;tipIdx=0;document.querySelectorAll("[data-fa]").forEach(e=>e.setAttribute("aria-pressed",e===b));updateTip()});
 
