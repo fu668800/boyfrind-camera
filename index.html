@@ -150,6 +150,7 @@ input[type=file]{display:none}
   <div class="modes">
     <button data-mode="portrait" aria-pressed="true">人像</button>
     <button data-mode="landscape" aria-pressed="false">風景</button>
+    <button data-mode="dining" aria-pressed="false">聚餐</button>
     <button data-mode="food" aria-pressed="false">美食</button>
   </div>
 
@@ -213,6 +214,8 @@ const MODES={
     target:{tilt:-8,tol:8},tips:["眼睛放在上面那條線","手機比眼睛高一點，微微往下拍","找側面來的光，避開頭頂光","腳底對齊畫面最下緣，腿會變長"]},
   landscape:{name:"風景",filters:["none","fujineg","tealorange","gold","golden","sky","moody","morandi","maillard","cyber","blackgold","mist","bw"],
     target:{tilt:0,tol:6},tips:["地平線放在上或下三分之一","前景放點東西，畫面更有層次","逆光時把曝光往左拉一點"]},
+  dining:{name:"聚餐",filters:["none","tasty","cream","kclear","peach","maillard","gold","hk","cafe","polaroid"],
+    target:{tilt:-10,tol:10},tips:["先後退一點，讓桌上的菜擋在人前面","拍法學自抖音 @秋秋脾氣好 的火鍋構圖"]},
   food:{name:"美食",filters:["none","tasty","cream","maillard","dopamine","cafe","caramel","dessert","fresh","gold","polaroid","vivid"],
     angles:{top:{tilt:-90,tol:7,bubble:true},"45":{tilt:-45,tol:8}},
     tips:{top:["正上方俯拍，適合一整桌菜、披薩","把黃點移進圓圈中央"],"45":["45° 像坐在桌前看，適合漢堡、蛋糕、飲料","主角放在下方交叉點"]}},
@@ -237,6 +240,14 @@ const COMPO={
     {id:"sym",n:"倒影",tip:"有湖面倒影時，才把地平線放在正中間",hl:[{h:1/2}],z:[
       {x:.02,y:.3,w:.96,h:.2,t:"山"},{x:.02,y:.5,w:.96,h:.2,t:"倒影",ghost:1}]},
   ],
+  dining:[
+    {id:"six",n:"直拍・中下六格",tip:"後退一點，人放中下六格，頭頂靠上面那條線",hl:[{h:1/3,t:"頭頂靠這條線"}],z:[
+      {x:0,y:1/3,w:1,h:2/3,t:"人＋桌子放這 6 格",fill:1}]},
+    {id:"brow",n:"橫拍・眉毛對線",tip:"手機橫過來，眉毛卡在第一條線上，可以碰杯來一張",land:1,hl:[{h:1/3,t:"眉毛卡在這條線"}],z:[
+      {x:1/3,y:.08,w:1/3,h:.92,t:"人",ghost:1}]},
+    {id:"four",n:"後退・左上四格",tip:"後退約 3 公尺，人放左上四格，右邊和下面放滿菜",hl:[{v:2/3},{h:2/3}],z:[
+      {x:0,y:0,w:2/3,h:2/3,t:"人放左上 4 格",fill:1},{x:2/3,y:.36,w:1/3,h:.64,t:"滿桌的菜",ghost:1}]},
+  ],
   food:[
     {id:"one",n:"單一主角",tip:"一道菜就放大放滿，留一點盤子邊緣",
       top:{hl:[],z:[{x:.16,y:.24,w:.68,h:.52,t:"主菜"}]},
@@ -253,7 +264,7 @@ const ADJ=[
 ];
 const ADJ0=Object.fromEntries(ADJ.map(a=>[a.k,(a.def??0)/100]));
 
-const S={compo:{portrait:"half",landscape:"sky",food:"one"},mode:"portrait",pick:{portrait:"none",landscape:"none",food:"none"},adj:{...ADJ0},ev:0,frame:"none",stamp:false,grid:true,
+const S={compo:{portrait:"half",landscape:"sky",dining:"six",food:"one"},mode:"portrait",pick:{portrait:"none",landscape:"none",dining:"none",food:"none"},adj:{...ADJ0},ev:0,frame:"none",stamp:false,grid:true,
   foodAngle:"top",live:false,src:null,stream:null,facing:"environment",u:null,okPrev:false,noCam:false,isSample:false};
 const $=id=>document.getElementById(id);
 const view=$("view"),video=$("video");
@@ -362,17 +373,24 @@ function drawGuides(box,J){
     // 重點線
     c.lineWidth=lw*1.6;c.strokeStyle="rgba(255,127,163,.95)";
     for(const l of tp.hl){c.beginPath();if(l.h!=null){c.moveTo(x,y+h*l.h);c.lineTo(x+w,y+h*l.h)}else{c.moveTo(x+w*l.v,y);c.lineTo(x+w*l.v,y+h)}c.stroke()}
-    // 框
     const fs=Math.max(11,Math.round(Math.min(w,h)*.038));c.font=`700 ${fs}px "Noto Sans TC",sans-serif`;c.textBaseline="middle";
+    const pill=(t,px,py,bg,fg)=>{const tw=c.measureText(t).width+fs*1.1,th=fs*1.7;px=Math.max(x+2,Math.min(px,x+w-tw-2));
+      c.fillStyle=bg;c.beginPath();c.roundRect?c.roundRect(px,py,tw,th,th/2):c.rect(px,py,tw,th);c.fill();c.fillStyle=fg;c.fillText(t,px+fs*.55,py+th/2)};
+    // 需要橫拍時，直拿手機就提醒
+    if(tp.land&&h>w){c.fillStyle="rgba(58,44,53,.55)";c.fillRect(x,y,w,h);
+      const t="↻ 把手機橫過來拍",tw=c.measureText(t).width+fs*1.1;pill(t,x+w/2-tw/2,y+h*.42,"#ffcf5c","#5a3a00")}
+    // 框
     for(const z of tp.z){
       const zx=x+w*z.x,zy=y+h*z.y,zw=w*z.w,zh=h*z.h,rad=Math.min(zw,zh)*.12;
       c.setLineDash(z.ghost?[4*lw,5*lw]:[9*lw,6*lw]);c.lineWidth=z.ghost?lw:lw*1.8;
-      c.strokeStyle=z.ghost?"rgba(255,255,255,.75)":"#ff7fa3";c.fillStyle=z.ghost?"rgba(255,255,255,.06)":"rgba(255,127,163,.14)";
+      c.strokeStyle=z.ghost?"rgba(255,255,255,.75)":"#ff7fa3";c.fillStyle=z.ghost?"rgba(255,255,255,.06)":z.fill?"rgba(120,170,255,.32)":"rgba(255,127,163,.14)";
       c.beginPath();c.roundRect?c.roundRect(zx,zy,zw,zh,rad):c.rect(zx,zy,zw,zh);c.fill();c.stroke();c.setLineDash([]);
       const tw=c.measureText(z.t).width+fs*1.1,th=fs*1.7,lx=Math.min(zx+fs*.4,x+w-tw-2),ly=zy+fs*.4;
       c.fillStyle=z.ghost?"rgba(255,255,255,.9)":"#ff7fa3";c.beginPath();c.roundRect?c.roundRect(lx,ly,tw,th,th/2):c.rect(lx,ly,tw,th);c.fill();
       c.fillStyle=z.ghost?"#5a3e4b":"#fff";c.fillText(z.t,lx+fs*.55,ly+th/2);
     }
+    // 重點線的說明
+    for(const l of tp.hl){if(!l.t||l.h==null)continue;const tw=c.measureText(l.t).width+fs*1.1;pill(l.t,x+w-tw-fs*.4,y+h*l.h-fs*2.1,"#ff7fa3","#fff")}
   }
   if(J){
     const col=J.ok?"#5cc9a7":"#ffcf5c";
